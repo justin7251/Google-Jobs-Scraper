@@ -1,11 +1,12 @@
 from DrissionPage import ChromiumPage
+import argparse
 import csv
 import time
 from urllib.parse import quote_plus
 
-QUERY = "php developer"
-LOCATION = "birmingham"
-MAX_PAGES = 1  # Increase carefully; some sites block aggressive scraping
+DEFAULT_QUERY = "php developer"
+DEFAULT_LOCATIONS = ["london", "birmingham", "coventry", "manchester"]
+DEFAULT_MAX_PAGES = 1  # Increase carefully; some sites block aggressive scraping
 
 BOARDS = [
     {
@@ -56,9 +57,9 @@ def safe_href(ele):
     return ele.attr("href") if ele else ""
 
 
-def build_url(board, page_index):
-    q = quote_plus(QUERY)
-    loc = quote_plus(LOCATION)
+def build_url(board, page_index, query, location):
+    q = quote_plus(query)
+    loc = quote_plus(location)
     if board["name"] == "indeed":
         return board["search_url"].format(query=q, location=loc, start=page_index * 10)
     return board["search_url"].format(query=q, location=loc, page=page_index + 1)
@@ -74,9 +75,9 @@ def normalize_link(base_url, href):
     return f"{base_url}/{href}"
 
 
-def scrape_board(page, board, writer):
-    for page_index in range(MAX_PAGES):
-        url = build_url(board, page_index)
+def scrape_board(page, board, writer, query, location, max_pages):
+    for page_index in range(max_pages):
+        url = build_url(board, page_index, query, location)
         page.get(url)
         time.sleep(3)
 
@@ -107,7 +108,30 @@ def scrape_board(page, board, writer):
             ])
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Scrape job boards for listings.")
+    parser.add_argument("--query", default=DEFAULT_QUERY, help="Job title or keywords.")
+    parser.add_argument(
+        "--location",
+        default=",".join(DEFAULT_LOCATIONS),
+        help="Comma-separated job locations (e.g., london,birmingham).",
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=DEFAULT_MAX_PAGES,
+        help="Pages per board to scan.",
+    )
+    return parser.parse_args()
+
+
+def parse_locations(raw_value):
+    return [loc.strip() for loc in raw_value.split(",") if loc.strip()]
+
+
 def main():
+    args = parse_args()
+    locations = parse_locations(args.location)
     page = ChromiumPage()
 
     with open("jobs_indeed_reed.csv", mode="w", newline="", encoding="utf-8") as file:
@@ -115,7 +139,8 @@ def main():
         writer.writerow(["Source", "Title", "Company", "Location", "Posted Time", "Job Link"])
 
         for board in BOARDS:
-            scrape_board(page, board, writer)
+            for location in locations:
+                scrape_board(page, board, writer, args.query, location, args.max_pages)
 
     page.close()
     print("Job data has been successfully saved to jobs_indeed_reed.csv")

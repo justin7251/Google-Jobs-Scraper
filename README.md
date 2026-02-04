@@ -58,8 +58,13 @@ python merge_jobs.py
 Output: `jobs_all.csv`
 
 ## Configure Searches
-- Google: edit `GJOBS_URL` in `google_s.py` or `google_jobs.py`.
-- Indeed/Reed: edit `QUERY`, `LOCATION`, and `MAX_PAGES` in `job_boards.py`.
+Pass search options as arguments:
+```powershell
+python run_all.py --query "AI developer" --location "london,birmingham,coventry,manchester" --max-pages 2
+python google_s.py --query "AI developer" --location "london,birmingham"
+python google_jobs.py --query "AI developer" --location "london,birmingham"
+python job_boards.py --query "AI developer" --location "london,birmingham,coventry,manchester" --max-pages 2
+```
 
 ## Output Columns
 `jobs_all.csv` columns:
