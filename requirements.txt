@@ -1,2 +1,2 @@
 DataRecorder
-DrissionPage==4.10.0
+DrissionPage==4.1.1.2
