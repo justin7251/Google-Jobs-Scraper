@@ -2,6 +2,7 @@ from DrissionPage import ChromiumPage
 import argparse
 import csv
 import time
+import re
 from urllib.parse import quote_plus
 
 DEFAULT_QUERY = "php developer"
@@ -98,6 +99,74 @@ def find_description_by_heading(page, headings, timeout=0.5):
     return ""
 
 
+def extract_labeled_value(text, labels):
+    if not text:
+        return ""
+    for label in labels:
+        pattern = rf"(?:^|\n|\r)\s*{re.escape(label)}\s*[:\-]\s*(.+)"
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = match.group(1).strip()
+            # stop at next labeled line if present
+            value = re.split(r"\n\s*[A-Za-z][A-Za-z /]{1,30}\s*[:\-]\s*", value)[0].strip()
+            if value:
+                return value
+    return ""
+
+
+def extract_salary(text):
+    if not text:
+        return ""
+    # Common patterns: "$120,000", "£50k", "USD 80,000", "€70,000 - €90,000"
+    currency = r"(?:\$|£|€|USD|GBP|EUR)"
+    amount = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:\s?[kK])?"
+    range_sep = r"(?:\s?[-–to]+\s?)"
+    pattern = rf"{currency}\s*{amount}(?:{range_sep}{currency}?\s*{amount})?"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(0).strip()
+    # Fallback: ranges without currency, e.g., "70,000 - 85,000" or "70k-85k"
+    range_no_currency = rf"\b{amount}\s*[-to]+\s*{amount}\b"
+    match = re.search(range_no_currency, text)
+    return match.group(0).strip() if match else ""
+
+
+def extract_location(text):
+    if not text:
+        return ""
+    # Prefer explicit labels
+    labeled = extract_labeled_value(text, ["Location", "Job location"])
+    if labeled:
+        return labeled
+    # Common phrasing: "in London", "in Manchester", "based in London"
+    match = re.search(r"\b(?:in|based in)\s+([A-Z][A-Za-z0-9 ,.'-/]{2,60})", text)
+    if match:
+        return match.group(1).strip()
+    # Remote/hybrid keywords
+    if re.search(r"\bremote\b", text, flags=re.IGNORECASE):
+        if re.search(r"\bhybrid\b", text, flags=re.IGNORECASE):
+            return "Hybrid"
+        return "Remote"
+    return ""
+
+
+def extract_company(text):
+    if not text:
+        return ""
+    labeled = extract_labeled_value(text, ["Company", "Employer"])
+    if labeled:
+        return labeled
+    # Heuristic: "Company Background <Name> ..."
+    match = re.search(r"\bCompany Background\s+([A-Z][A-Za-z0-9&' -]{2,60})", text)
+    if match:
+        return match.group(1).strip()
+    # Heuristic: "About <Name>" (only if looks like a proper noun)
+    match = re.search(r"\bAbout\s+([A-Z][A-Za-z0-9&' -]{2,60})\b", text)
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
 def build_gjobs_url(query, location):
     q = quote_plus(f"{query} jobs {location}".strip())
     return f"https://www.google.com/search?q={q}&jbr=sep:0&udm=8"
@@ -139,6 +208,7 @@ with open("google_jobs.csv", mode="w", newline="", encoding="utf-8") as file:
         "Job Link",
         "Description Snippet",
         "Description Full",
+        "Salary",
     ])
 
     for location in locations:
@@ -182,6 +252,15 @@ with open("google_jobs.csv", mode="w", newline="", encoding="utf-8") as file:
                         timeout=0.5,
                     )
 
+                # Parse Company/Location/Salary from Description Full
+                parsed_company = extract_company(desc_full)
+                parsed_location = extract_location(desc_full)
+                salary = extract_labeled_value(desc_full, ["Salary", "Compensation", "Pay"]) or extract_salary(desc_full)
+                if parsed_company:
+                    company = parsed_company
+                if parsed_location:
+                    location = parsed_location
+
                 writer.writerow([
                     title,
                     company,
@@ -190,6 +269,7 @@ with open("google_jobs.csv", mode="w", newline="", encoding="utf-8") as file:
                     job_link,
                     desc_snippet,
                     desc_full,
+                    salary,
                 ])
                 job_count += 1
 

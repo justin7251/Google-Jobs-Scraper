@@ -5,8 +5,6 @@ Small scripts to scrape job listings from Google Jobs, Indeed, and Reed, then me
 ## What Is Here
 - `google_s.py`
   Single-run Google Jobs scraper. Writes `google_jobs.csv`.
-- `google_jobs.py`
-  Threaded Google Jobs prototype that records to `data_<DD-Mon-YYYY>.csv`.
 - `job_boards.py`
   Scrapes Indeed and Reed. Writes `jobs_indeed_reed.csv`.
 - `merge_jobs.py`
@@ -39,12 +37,6 @@ python google_s.py
 ```
 Output: `google_jobs.csv`
 
-Google Jobs (prototype):
-```powershell
-python google_jobs.py
-```
-Output: `data_<DD-Mon-YYYY>.csv`
-
 Indeed + Reed:
 ```powershell
 python job_boards.py
@@ -62,7 +54,6 @@ Pass search options as arguments:
 ```powershell
 python run_all.py --query "AI developer" --location "london,birmingham,coventry,manchester" --max-pages 2
 python google_s.py --query "AI developer" --location "london,birmingham"
-python google_jobs.py --query "AI developer" --location "london,birmingham"
 python job_boards.py --query "AI developer" --location "london,birmingham,coventry,manchester" --max-pages 2
 ```
 
@@ -74,6 +65,8 @@ python job_boards.py --query "AI developer" --location "london,birmingham,covent
 - `Location`
 - `Posted Time`
 - `Job Link`
+- `Description Snippet`
+- `Description Full`
 - `Collected At`
 
 ## Notes
